@@ -4,6 +4,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from leads.models import Agent
 from .forms import AgentModelForm
 from .mixins import OrganizerAndLoginRequiredMixin
+from django.core.mail import send_mail
+import random
 
 
 class AgentListView(OrganizerAndLoginRequiredMixin, generic.ListView):
@@ -22,9 +24,20 @@ class AgentCreateView(OrganizerAndLoginRequiredMixin, generic.CreateView):
         return reverse("agents:agent-list")
 
     def form_valid(self, form):
-        agent = form.save(commit=False)
-        agent.organisations = self.request.user.userprofile
-        agent.save()
+        user = form.save(commit=False)
+        user.is_agent = True
+        user.is_organizer = False
+        user.set_password(f"{random.randint(0, 10000)}")
+        user.save()
+        Agent.objects.create(
+            user=user, organisations=self.request.user.userprofile
+        )
+        send_mail(
+            subject="you are invited to be as an agent",
+            message="Please come login and start working",
+            from_email="admin@gmail.com",
+            recipient_list=[user.email]
+        )
         return super(AgentCreateView, self).form_valid(form)
 
 
@@ -59,3 +72,5 @@ class AgentDeleteView(OrganizerAndLoginRequiredMixin, generic.DeleteView):
     def get_queryset(self):
         organisations = self.request.user.userprofile
         return Agent.objects.filter(organisations=organisations)
+
+
